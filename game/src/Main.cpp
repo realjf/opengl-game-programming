@@ -4,6 +4,14 @@
 //#include <GL/glaux.h>
 
 
+#include <SOIL2/SOIL2.h>
+
+//#define STB_IMAGE_IMPLEMENTATION
+//#include <SOIL2/stb_image.h>
+
+#include <stdio.h>
+
+
 
 HGLRC hRC = NULL;
 HDC hDC = NULL;
@@ -14,7 +22,63 @@ bool keys[256];
 bool active = TRUE;
 bool fullscreen = TRUE;
 
+GLfloat xrot;
+GLfloat yrot;
+GLfloat zrot;
+
+GLuint texture[1];
+
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+int LoadGLTextures()
+{
+	texture[0] = SOIL_load_OGL_texture("textures/checker.bmp", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+
+	if (texture[0] == 0)
+		return false;
+
+	glBindTexture(GL_TEXTURE_2D, texture[0]);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	
+	return true;
+}
+
+//int LoadGLTextures()
+//{
+//	glGenTextures(1, &texture[0]);
+//	int width, height, nrComponents;
+//	//unsigned char* image = stbi_load("textures/container2.png", &width, &height, &nrComponents, STBI_rgb_alpha);
+//	unsigned char* image = stbi_load("textures/checker.bmp", &width, &height, &nrComponents, 0);
+//	if (image == NULL) {
+//		return false;
+//	}
+//	GLenum format = GL_RGB, internalFormat = GL_RGB;
+//
+//	if (image)
+//	{
+//		if (nrComponents == 1)
+//			format = GL_RED;
+//		else if (nrComponents == 3)
+//			format = GL_RGB;
+//		else if (nrComponents == 4)
+//			format = GL_RGBA;
+//	}
+//
+//	glBindTexture(GL_TEXTURE_2D, texture[0]);
+//	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, image);
+//	// Set Texture wrap and filter modes
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	// Unbind texture
+//	glBindTexture(GL_TEXTURE_2D, 0);
+//
+//	stbi_image_free(image);
+//
+//	return true;
+//}
 
 GLvoid ReSizeGLScene(GLsizei width, GLsizei height)
 {
@@ -36,6 +100,13 @@ GLvoid ReSizeGLScene(GLsizei width, GLsizei height)
 
 int InitGL(GLvoid)
 {
+	if (!LoadGLTextures())
+	{
+		return FALSE;
+	}
+
+	glEnable(GL_TEXTURE_2D);
+
 	glShadeModel(GL_SMOOTH);
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
@@ -53,28 +124,50 @@ int DrawGLScene(GLvoid)                             // Here's Where We Do All Th
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);         // Clear The Screen And The Depth Buffer
 	glLoadIdentity();                           // Reset The Current ModelView Matrix
 
-	glTranslatef(-1.5f, 0.0f, -6.0f);
+	glTranslatef(0.0f, 0.0f, -5.0f);
 
-	glBegin(GL_TRIANGLES);                      // Drawing Using Triangles
+	glRotatef(xrot, 1.0f, 0.0f, 0.0f);                     // Rotate On The X Axis
+	glRotatef(yrot, 0.0f, 1.0f, 0.0f);                     // Rotate On The Y Axis
+	glRotatef(zrot, 0.0f, 0.0f, 1.0f);                     // Rotate On The Z Axis
 
-	glColor3f(1.0f, 0.0f, 0.0f);          // Set The Color To Red
-	glVertex3f(0.0f, 1.0f, 0.0f);              // Top
+	glBindTexture(GL_TEXTURE_2D, texture[0]);               // Select Our Texture
 
-	glColor3f(0.0f, 1.0f, 0.0f);          // Set The Color To Green
-	glVertex3f(-1.0f, -1.0f, 0.0f);              // Bottom Left
-
-	glColor3f(0.0f, 0.0f, 1.0f);          // Set The Color To Blue
-	glVertex3f(1.0f, -1.0f, 0.0f);              // Bottom Right
+	glBegin(GL_QUADS);
+	// Front Face
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Top Right Of The Texture and Quad
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Top Left Of The Texture and Quad
+	// Back Face
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Top Right Of The Texture and Quad
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Top Left Of The Texture and Quad
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
+	// Top Face
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Top Left Of The Texture and Quad
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Top Right Of The Texture and Quad
+	// Bottom Face
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Top Right Of The Texture and Quad
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Top Left Of The Texture and Quad
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
+	// Right face
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Top Right Of The Texture and Quad
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Top Left Of The Texture and Quad
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
+	// Left Face
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Top Right Of The Texture and Quad
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Top Left Of The Texture and Quad
 	glEnd();
 
-	glTranslatef(3.0f, 0.0f, 0.0f);
-	glColor3f(0.5f, 0.5f, 1.0f);              // Set The Color To Blue One Time Only
-	glBegin(GL_QUADS);                      // Draw A Quad
-	glVertex3f(-1.0f, 1.0f, 0.0f);              // Top Left
-	glVertex3f(1.0f, 1.0f, 0.0f);              // Top Right
-	glVertex3f(1.0f, -1.0f, 0.0f);              // Bottom Right
-	glVertex3f(-1.0f, -1.0f, 0.0f);              // Bottom Left
-	glEnd();                            // Done Drawing The Quad
+	xrot += 0.3f;                             // X Axis Rotation
+	yrot += 0.2f;                             // Y Axis Rotation
+	zrot += 0.4f;                             // Z Axis Rotation
 
 	return TRUE;                                // Everything Went OK
 }
