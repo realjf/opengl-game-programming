@@ -1,3 +1,6 @@
 [submodule "deps/SOIL2"]
 	path = deps/SOIL2
 	url = https://github.com/SpartanJ/SOIL2.git
+[submodule "deps/glaux"]
+	path = deps/glaux
+	url = https://github.com/its-eric/MengerSponge.git

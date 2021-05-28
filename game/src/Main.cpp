@@ -1,16 +1,17 @@
 #include <windows.h>
 #include <GL/gl.h>
 #include <GL/glu.h>
-//#include <GL/glaux.h>
+
+#include "bmp.h"
+//#include "glaux.h"
 
 
-#include <SOIL2/SOIL2.h>
+//#include <SOIL2/SOIL2.h>
 
 //#define STB_IMAGE_IMPLEMENTATION
 //#include <SOIL2/stb_image.h>
 
 #include <stdio.h>
-
 
 
 HGLRC hRC = NULL;
@@ -22,63 +23,91 @@ bool keys[256];
 bool active = TRUE;
 bool fullscreen = TRUE;
 
+BOOL light; // lighting ON / OFF
+BOOL lp; // L pressed
+BOOL fp; // F pressed
+
+
 GLfloat xrot;
 GLfloat yrot;
 GLfloat zrot;
 
-GLuint texture[1];
+GLfloat xspeed;
+GLfloat yspeed;
+GLfloat z = -5.0f;
+
+GLfloat LightAmbient[] = { 0.5f, 0.5f, 0.5f, 1.0f }; // ambient light values
+GLfloat LightDiffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f }; // Diffuse Light values
+GLfloat LightPosition[] = { 0.0f, 0.0f, 2.0f, 1.0f }; // Light position
+
+GLuint filter; 
+GLuint texture[3];
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-int LoadGLTextures()
+
+AUX_RGBImageRec* LoadBMP(const char* Filename)
 {
-	texture[0] = SOIL_load_OGL_texture("textures/checker.bmp", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_INVERT_Y);
+	FILE* File = NULL;
 
-	if (texture[0] == 0)
-		return false;
+	if (Filename)
+	{
+		return NULL;
+	}
 
-	glBindTexture(GL_TEXTURE_2D, texture[0]);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	
-	return true;
+	File = fopen(Filename, "r");
+
+	if (File) {
+		fclose(File);
+		return auxDIBImageLoad(Filename);
+	}
+	return NULL;
 }
 
-//int LoadGLTextures()
-//{
-//	glGenTextures(1, &texture[0]);
-//	int width, height, nrComponents;
-//	//unsigned char* image = stbi_load("textures/container2.png", &width, &height, &nrComponents, STBI_rgb_alpha);
-//	unsigned char* image = stbi_load("textures/checker.bmp", &width, &height, &nrComponents, 0);
-//	if (image == NULL) {
-//		return false;
-//	}
-//	GLenum format = GL_RGB, internalFormat = GL_RGB;
-//
-//	if (image)
-//	{
-//		if (nrComponents == 1)
-//			format = GL_RED;
-//		else if (nrComponents == 3)
-//			format = GL_RGB;
-//		else if (nrComponents == 4)
-//			format = GL_RGBA;
-//	}
-//
-//	glBindTexture(GL_TEXTURE_2D, texture[0]);
-//	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format, GL_UNSIGNED_BYTE, image);
-//	// Set Texture wrap and filter modes
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	// Unbind texture
-//	glBindTexture(GL_TEXTURE_2D, 0);
-//
-//	stbi_image_free(image);
-//
-//	return true;
-//}
+int LoadGLTextures()
+{
+	int Status = FALSE;
+	AUX_RGBImageRec* TextureImage[1];
+	memset(TextureImage, 0, sizeof(void*)*1);
+
+	if (TextureImage[0] = LoadBMP("textures/textura1.bmp"))
+	{
+		Status = TRUE;
+		glGenTextures(3, &texture[0]);
+
+		// Create Nearest Filtered Texture
+		glBindTexture(GL_TEXTURE_2D, texture[0]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST); // ( NEW )
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // ( NEW )
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, TextureImage[0]->sizeX, TextureImage[0]->sizeY, 0, GL_RGB, GL_UNSIGNED_BYTE, TextureImage[0]->data);
+
+		// Create Linear Filtered Texture
+		glBindTexture(GL_TEXTURE_2D, texture[1]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexImage2D(GL_TEXTURE_2D, 0, 3, TextureImage[0]->sizeX, TextureImage[0]->sizeY, 0, GL_RGB, GL_UNSIGNED_BYTE, TextureImage[0]->data);
+
+		// Create MipMapped Texture
+		glBindTexture(GL_TEXTURE_2D, texture[2]);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST); // ( NEW )
+
+		gluBuild2DMipmaps(GL_TEXTURE_2D, 3, TextureImage[0]->sizeX, TextureImage[0]->sizeY, GL_RGB, GL_UNSIGNED_BYTE, TextureImage[0]->data); // ( NEW )
+	}
+
+	if (TextureImage[0])                            // If Texture Exists
+	{
+		if (TextureImage[0]->data)                   // If Texture Image Exists
+		{
+			free(TextureImage[0]->data);             // Free The Texture Image Memory
+		}
+
+		free(TextureImage[0]);                      // Free The Image Structure
+	}
+
+	return Status;
+}
+
 
 GLvoid ReSizeGLScene(GLsizei width, GLsizei height)
 {
@@ -116,6 +145,12 @@ int InitGL(GLvoid)
 
 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
+	glLightfv(GL_LIGHT1, GL_AMBIENT, LightAmbient);             // Setup The Ambient Light
+	glLightfv(GL_LIGHT1, GL_DIFFUSE, LightDiffuse);             // Setup The Diffuse Light
+	glLightfv(GL_LIGHT1, GL_POSITION, LightPosition);            // Position The Light
+	glEnable(GL_LIGHT1);                            // Enable Light One
+
+
 	return TRUE;
 }
 
@@ -124,50 +159,55 @@ int DrawGLScene(GLvoid)                             // Here's Where We Do All Th
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);         // Clear The Screen And The Depth Buffer
 	glLoadIdentity();                           // Reset The Current ModelView Matrix
 
-	glTranslatef(0.0f, 0.0f, -5.0f);
+	glTranslatef(0.0f, 0.0f, z);
 
 	glRotatef(xrot, 1.0f, 0.0f, 0.0f);                     // Rotate On The X Axis
 	glRotatef(yrot, 0.0f, 1.0f, 0.0f);                     // Rotate On The Y Axis
-	glRotatef(zrot, 0.0f, 0.0f, 1.0f);                     // Rotate On The Z Axis
 
-	glBindTexture(GL_TEXTURE_2D, texture[0]);               // Select Our Texture
+
+	glBindTexture(GL_TEXTURE_2D, texture[filter]);               // Select Our Texture
 
 	glBegin(GL_QUADS);
 	// Front Face
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Top Right Of The Texture and Quad
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Top Left Of The Texture and Quad
+	glNormal3f(0.0f, 0.0f, 1.0f);                  // Normal Pointing Towards Viewer
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Point 1 (Front)
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Point 2 (Front)
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Point 3 (Front)
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Point 4 (Front)
 	// Back Face
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Top Right Of The Texture and Quad
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Top Left Of The Texture and Quad
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
+	glNormal3f(0.0f, 0.0f, -1.0f);                  // Normal Pointing Away From Viewer
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Point 1 (Back)
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Point 2 (Back)
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Point 3 (Back)
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Point 4 (Back)
 	// Top Face
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Top Left Of The Texture and Quad
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Top Right Of The Texture and Quad
+	glNormal3f(0.0f, 1.0f, 0.0f);                  // Normal Pointing Up
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Point 1 (Top)
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Point 2 (Top)
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Point 3 (Top)
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Point 4 (Top)
 	// Bottom Face
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Top Right Of The Texture and Quad
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Top Left Of The Texture and Quad
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
+	glNormal3f(0.0f, -1.0f, 0.0f);                  // Normal Pointing Down
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Point 1 (Bottom)
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Point 2 (Bottom)
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Point 3 (Bottom)
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Point 4 (Bottom)
 	// Right face
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Bottom Right Of The Texture and Quad
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Top Right Of The Texture and Quad
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Top Left Of The Texture and Quad
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Bottom Left Of The Texture and Quad
+	glNormal3f(1.0f, 0.0f, 0.0f);                  // Normal Pointing Right
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(1.0f, -1.0f, -1.0f);  // Point 1 (Right)
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(1.0f, 1.0f, -1.0f);  // Point 2 (Right)
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(1.0f, 1.0f, 1.0f);  // Point 3 (Right)
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(1.0f, -1.0f, 1.0f);  // Point 4 (Right)
 	// Left Face
-	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Bottom Left Of The Texture and Quad
-	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Bottom Right Of The Texture and Quad
-	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Top Right Of The Texture and Quad
-	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Top Left Of The Texture and Quad
+	glNormal3f(-1.0f, 0.0f, 0.0f);                  // Normal Pointing Left
+	glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);  // Point 1 (Left)
+	glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, 1.0f);  // Point 2 (Left)
+	glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, 1.0f, 1.0f);  // Point 3 (Left)
+	glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f, 1.0f, -1.0f);  // Point 4 (Left)
 	glEnd();
 
-	xrot += 0.3f;                             // X Axis Rotation
-	yrot += 0.2f;                             // Y Axis Rotation
-	zrot += 0.4f;                             // Z Axis Rotation
+	xrot += xspeed;                               // Add xspeed To xrot
+	yrot += yspeed;                               // Add yspeed To yrot
 
 	return TRUE;                                // Everything Went OK
 }
@@ -473,17 +513,72 @@ int WINAPI WinMain(HINSTANCE   hInstance,              // Instance
 				{
 					DrawGLScene();              // Draw The Scene
 					SwapBuffers(hDC);
-				}
-			}
-			if (keys[VK_F1])                    // Is F1 Being Pressed?
-			{
-				keys[VK_F1] = FALSE;              // If So Make Key FALSE
-				KillGLWindow();                 // Kill Our Current Window
-				fullscreen = !fullscreen;             // Toggle FullScreen / Windowed Mode
-				// Recreate Our OpenGL Window
-				if (!CreateGLWindow("NeHe's OpenGL Framework", 640, 480, 16, fullscreen))
-				{
-					return 0;               // Quit If Window Was Not Created
+					if (keys['L'] && !lp)               // L Key Being Pressed Not Held?
+					{
+						lp = TRUE;                // lp Becomes TRUE
+						light = !light;               // Toggle Light TRUE/FALSE
+						if (!light)             // If Not Light
+						{
+							glDisable(GL_LIGHTING);     // Disable Lighting
+						}
+						else                    // Otherwise
+						{
+							glEnable(GL_LIGHTING);      // Enable Lighting
+						}
+					}
+					if (!keys['L'])                 // Has L Key Been Released?
+					{
+						lp = FALSE;               // If So, lp Becomes FALSE
+					}
+					if (keys['F'] && !fp)               // Is F Key Being Pressed?
+					{
+						fp = TRUE;                // fp Becomes TRUE
+						filter += 1;              // filter Value Increases By One
+						if (filter > 2)                // Is Value Greater Than 2?
+						{
+							filter = 0;           // If So, Set filter To 0
+						}
+					}
+					if (!keys['F'])                 // Has F Key Been Released?
+					{
+						fp = FALSE;               // If So, fp Becomes FALSE
+					}
+					if (keys[VK_PRIOR])             // Is Page Up Being Pressed?
+					{
+						z -= 0.02f;               // If So, Move Into The Screen
+					}
+					if (keys[VK_NEXT])              // Is Page Down Being Pressed?
+					{
+						z += 0.02f;               // If So, Move Towards The Viewer
+					}
+					if (keys[VK_UP])                // Is Up Arrow Being Pressed?
+					{
+						xspeed -= 0.01f;              // If So, Decrease xspeed
+					}
+					if (keys[VK_DOWN])              // Is Down Arrow Being Pressed?
+					{
+						xspeed += 0.01f;              // If So, Increase xspeed
+					}
+					if (keys[VK_RIGHT])             // Is Right Arrow Being Pressed?
+					{
+						yspeed += 0.01f;              // If So, Increase yspeed
+					}
+					if (keys[VK_LEFT])              // Is Left Arrow Being Pressed?
+					{
+						yspeed -= 0.01f;              // If So, Decrease yspeed
+					}
+					if (keys[VK_F1])                // Is F1 Being Pressed?
+					{
+						keys[VK_F1] = FALSE;          // If So Make Key FALSE
+						KillGLWindow();             // Kill Our Current Window
+						fullscreen = !fullscreen;         // Toggle Fullscreen / Windowed Mode
+						// Recreate Our OpenGL Window
+						if (!CreateGLWindow("NeHe's Textures, Lighting & Keyboard Tutorial", 640, 480, 16, fullscreen))
+						{
+							return 0;           // Quit If Window Was Not Created
+						}
+					}
+
 				}
 			}
 		}

@@ -20,6 +20,8 @@ workspace "opengl-game"
 
 IncluderDir = {}
 IncluderDir["SOIL2"] = "deps/SOIL2/src"	
+IncluderDir["glaux"] = "deps/glaux/"
+IncluderDir["GL"] = "deps/GL/"	
 
 project "soil2"
 	location "soil2"
@@ -61,6 +63,8 @@ project "game"
 	includedirs
 	{
 		"%{IncluderDir.SOIL2}",
+		"%{IncluderDir.glaux}",
+		"%{IncluderDir.GL}/include",
 	}
 	
 	
@@ -75,6 +79,7 @@ project "game"
 			"opengl32",
 			"glu32",
 			"soil2",
+			"glaux",
 		}
 		
 		buildoptions {
@@ -83,6 +88,8 @@ project "game"
 	
 		libdirs {
 			"deps/SOIL2/lib/" .. os.target() .. "/",
+			"deps/glaux/",
+			"%{IncluderDir.GL}/lib",
 		}
 	
 	filter "configurations:Debug"

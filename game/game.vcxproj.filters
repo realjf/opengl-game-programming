@@ -12,9 +12,29 @@
     <ClCompile Include="src\Main.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\bmp.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\bmp.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="textures\checker.bmp">
+      <Filter>textures</Filter>
+    </Image>
+    <Image Include="textures\container2.png">
+      <Filter>textures</Filter>
+    </Image>
+    <Image Include="textures\textura1.bmp">
+      <Filter>textures</Filter>
+    </Image>
+    <Image Include="textures\textura2.bmp">
+      <Filter>textures</Filter>
+    </Image>
+    <Image Include="textures\textura3.bmp">
       <Filter>textures</Filter>
     </Image>
   </ItemGroup>
